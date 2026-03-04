@@ -2,16 +2,18 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import bcrypt from "bcrypt";
-import { randomBytes } from "crypto";
 import { db } from "@/lib/db";
-import { users, workspaces, workspaceApiKeys, subscriptions } from "@twofakit/db";
+import {
+  workspaces,
+  workspaceUsers,
+  generateToken,
+  hashPassword,
+} from "@magiclinkkit/db";
 
 const SignupSchema = z.object({
+  name: z.string().min(1).max(100),
   email: z.string().email().max(255),
   password: z.string().min(8).max(128),
-  name: z.string().min(1).max(100),
-  workspaceName: z.string().min(1).max(100).optional(),
 });
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
@@ -21,76 +23,36 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     if (!result.success) {
       return NextResponse.json(
-        {
-          status: "fail",
-          message: "Validation error",
-          errors: result.error.flatten().fieldErrors,
-        },
+        { error: "Validation error", details: result.error.flatten().fieldErrors },
         { status: 422 }
       );
     }
 
-    const { email, password, name, workspaceName } = result.data;
+    const { name, email, password } = result.data;
 
-    const passwordHash = await bcrypt.hash(password, 10);
+    const apiKey = `mlk_${generateToken()}`;
+    const passwordHash = await hashPassword(password);
 
-    // Create user
-    const [user] = await db
-      .insert(users)
-      .values({ email, name, passwordHash })
-      .returning({ id: users.id });
-
-    if (!user) {
-      return NextResponse.json(
-        { status: "fail", message: "Failed to create user" },
-        { status: 500 }
-      );
-    }
-
-    // Create workspace
     const [workspace] = await db
       .insert(workspaces)
-      .values({
-        userId: user.id,
-        name: workspaceName ?? `${name}'s Workspace`,
-      })
-      .returning({ id: workspaces.id });
+      .values({ name, apiKey })
+      .returning({ id: workspaces.id, apiKey: workspaces.apiKey });
 
     if (!workspace) {
       return NextResponse.json(
-        { status: "fail", message: "Failed to create workspace" },
+        { error: "Failed to create workspace" },
         { status: 500 }
       );
     }
 
-    // Create free subscription
-    await db.insert(subscriptions).values({
+    await db.insert(workspaceUsers).values({
       workspaceId: workspace.id,
-      tier: "free",
-      status: "active",
-    });
-
-    // Generate API key
-    const rawKey = `tk_live_${randomBytes(32).toString("hex")}`;
-    const keyPrefix = rawKey.slice(0, 8) + "_";
-    const keyHash = await bcrypt.hash(rawKey, 10);
-
-    await db.insert(workspaceApiKeys).values({
-      workspaceId: workspace.id,
-      keyPrefix,
-      keyHash,
-      name: "Default API Key",
+      email,
+      passwordHash,
     });
 
     return NextResponse.json(
-      {
-        status: "success",
-        data: {
-          userId: user.id,
-          workspaceId: workspace.id,
-          apiKey: rawKey,
-        },
-      },
+      { workspaceId: workspace.id, apiKey: workspace.apiKey },
       { status: 201 }
     );
   } catch (error: unknown) {
@@ -99,13 +61,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       error.message.includes("unique constraint")
     ) {
       return NextResponse.json(
-        { status: "fail", message: "Email already registered" },
+        { error: "Email already registered" },
         { status: 409 }
       );
     }
     console.error("Signup error:", error);
     return NextResponse.json(
-      { status: "fail", message: "Internal server error" },
+      { error: "Internal server error" },
       { status: 500 }
     );
   }

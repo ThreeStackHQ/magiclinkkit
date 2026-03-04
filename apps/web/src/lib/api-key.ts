@@ -1,7 +1,6 @@
 import { db } from "./db";
-import { workspaceApiKeys } from "@twofakit/db";
+import { workspaces } from "@magiclinkkit/db";
 import { eq } from "drizzle-orm";
-import bcrypt from "bcrypt";
 import { NextRequest, NextResponse } from "next/server";
 
 interface ApiKeyResult {
@@ -11,22 +10,14 @@ interface ApiKeyResult {
 export async function validateApiKey(
   key: string
 ): Promise<ApiKeyResult | null> {
-  const prefix = key.slice(0, 8) + "_";
+  const [workspace] = await db
+    .select({ id: workspaces.id })
+    .from(workspaces)
+    .where(eq(workspaces.apiKey, key))
+    .limit(1);
 
-  const keys = await db
-    .select()
-    .from(workspaceApiKeys)
-    .where(eq(workspaceApiKeys.keyPrefix, prefix));
-
-  for (const k of keys) {
-    if (!k.isActive) continue;
-    const isValid = await bcrypt.compare(key, k.keyHash);
-    if (isValid) {
-      return { workspaceId: k.workspaceId };
-    }
-  }
-
-  return null;
+  if (!workspace) return null;
+  return { workspaceId: workspace.id };
 }
 
 export async function withApiKey(
@@ -36,22 +27,17 @@ export async function withApiKey(
     context: { workspaceId: string }
   ) => Promise<NextResponse>
 ): Promise<NextResponse> {
-  const authHeader = req.headers.get("authorization");
-  if (!authHeader?.startsWith("Bearer ")) {
+  const apiKey = req.headers.get("x-api-key");
+  if (!apiKey) {
     return NextResponse.json(
-      { status: "fail", message: "Missing or invalid Authorization header" },
+      { error: "Missing X-Api-Key header" },
       { status: 401 }
     );
   }
 
-  const apiKey = authHeader.slice(7);
   const result = await validateApiKey(apiKey);
-
   if (!result) {
-    return NextResponse.json(
-      { status: "fail", message: "Invalid API key" },
-      { status: 401 }
-    );
+    return NextResponse.json({ error: "Invalid API key" }, { status: 401 });
   }
 
   return handler(req, { workspaceId: result.workspaceId });

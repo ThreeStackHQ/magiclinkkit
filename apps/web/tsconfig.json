@@ -1,5 +1,5 @@
 {
-  "extends": "@twofakit/config/tsconfig.nextjs.json",
+  "extends": "@magiclinkkit/config/tsconfig.nextjs.json",
   "compilerOptions": {
     "paths": {
       "@/*": ["./src/*"]

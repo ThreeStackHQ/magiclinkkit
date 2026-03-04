@@ -7,149 +7,134 @@ import {
   uuid,
   index,
   integer,
-  primaryKey,
 } from "drizzle-orm/pg-core";
-type AdapterAccountType = "oauth" | "oidc" | "email" | "webauthn";
-
-// ─── Users ───────────────────────────────────────────────────────────
-
-export const users = pgTable("users", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  email: text("email").notNull().unique(),
-  name: text("name"),
-  passwordHash: text("password_hash"),
-  emailVerified: timestamp("email_verified", { mode: "date" }),
-  image: text("image"),
-  createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
-});
-
-// ─── NextAuth Tables ─────────────────────────────────────────────────
-
-export const accounts = pgTable(
-  "accounts",
-  {
-    userId: uuid("user_id")
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
-    type: text("type").$type<AdapterAccountType>().notNull(),
-    provider: text("provider").notNull(),
-    providerAccountId: text("provider_account_id").notNull(),
-    refresh_token: text("refresh_token"),
-    access_token: text("access_token"),
-    expires_at: integer("expires_at"),
-    token_type: text("token_type"),
-    scope: text("scope"),
-    id_token: text("id_token"),
-    session_state: text("session_state"),
-  },
-  (account) => [
-    primaryKey({ columns: [account.provider, account.providerAccountId] }),
-  ]
-);
-
-export const sessions = pgTable("sessions", {
-  sessionToken: text("session_token").primaryKey(),
-  userId: uuid("user_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  expires: timestamp("expires", { mode: "date" }).notNull(),
-});
-
-export const verificationTokens = pgTable(
-  "verification_tokens",
-  {
-    identifier: text("identifier").notNull(),
-    token: text("token").notNull(),
-    expires: timestamp("expires", { mode: "date" }).notNull(),
-  },
-  (vt) => [primaryKey({ columns: [vt.identifier, vt.token] })]
-);
 
 // ─── Workspaces ──────────────────────────────────────────────────────
 
-export const workspaces = pgTable("workspaces", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  userId: uuid("user_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  name: text("name").notNull(),
-  createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
-});
-
-// ─── API Keys ────────────────────────────────────────────────────────
-
-export const workspaceApiKeys = pgTable(
-  "workspace_api_keys",
+export const workspaces = pgTable(
+  "workspaces",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    workspaceId: uuid("workspace_id")
-      .notNull()
-      .references(() => workspaces.id, { onDelete: "cascade" }),
-    keyPrefix: text("key_prefix").notNull(),
-    keyHash: text("key_hash").notNull(),
     name: text("name").notNull(),
-    isActive: boolean("is_active").default(true).notNull(),
-    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+    apiKey: text("api_key").notNull(),
+    plan: text("plan")
+      .$type<"free" | "pro" | "business">()
+      .default("free")
+      .notNull(),
+    stripeCustomerId: text("stripe_customer_id"),
+    monthlyAuthCount: integer("monthly_auth_count").default(0).notNull(),
+    lastResetAt: timestamp("last_reset_at", { mode: "date" })
+      .defaultNow()
+      .notNull(),
+    createdAt: timestamp("created_at", { mode: "date" })
+      .defaultNow()
+      .notNull(),
   },
-  (table) => [index("api_keys_prefix_idx").on(table.keyPrefix)]
+  (table) => [index("workspaces_api_key_idx").on(table.apiKey)]
 );
 
-// ─── 2FA Enrollments ─────────────────────────────────────────────────
+// ─── Workspace Users (dashboard login) ──────────────────────────────
 
-export const twofaEnrollments = pgTable(
-  "twofa_enrollments",
+export const workspaceUsers = pgTable(
+  "workspace_users",
   {
     id: uuid("id").defaultRandom().primaryKey(),
     workspaceId: uuid("workspace_id")
       .notNull()
       .references(() => workspaces.id, { onDelete: "cascade" }),
-    endUserId: text("end_user_id").notNull(),
-    secretEncrypted: text("secret_encrypted").notNull(),
-    backupCodes: jsonb("backup_codes").$type<string[]>(),
-    isEnabled: boolean("is_enabled").default(false).notNull(),
-    enrolledAt: timestamp("enrolled_at", { mode: "date" }),
-    lastVerifiedAt: timestamp("last_verified_at", { mode: "date" }),
+    email: text("email").notNull(),
+    passwordHash: text("password_hash").notNull(),
+    createdAt: timestamp("created_at", { mode: "date" })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [index("workspace_users_email_idx").on(table.email)]
+);
+
+// ─── Magic Links ────────────────────────────────────────────────────
+
+export const magicLinks = pgTable(
+  "magic_links",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    email: text("email").notNull(),
+    token: text("token").notNull(),
+    expiresAt: timestamp("expires_at", { mode: "date" }).notNull(),
+    usedAt: timestamp("used_at", { mode: "date" }),
+    redirectUrl: text("redirect_url"),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>(),
+    ipAddress: text("ip_address"),
+    createdAt: timestamp("created_at", { mode: "date" })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [index("magic_links_token_idx").on(table.token)]
+);
+
+// ─── OTP Codes ──────────────────────────────────────────────────────
+
+export const otpCodes = pgTable(
+  "otp_codes",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    email: text("email").notNull(),
+    code: text("code").notNull(),
+    expiresAt: timestamp("expires_at", { mode: "date" }).notNull(),
+    usedAt: timestamp("used_at", { mode: "date" }),
+    attemptCount: integer("attempt_count").default(0).notNull(),
+    ipAddress: text("ip_address"),
+    createdAt: timestamp("created_at", { mode: "date" })
+      .defaultNow()
+      .notNull(),
   },
   (table) => [
-    index("enrollments_workspace_user_idx").on(
+    index("otp_codes_workspace_email_idx").on(
       table.workspaceId,
-      table.endUserId
+      table.email
     ),
   ]
 );
 
-// ─── 2FA Events ──────────────────────────────────────────────────────
+// ─── Audit Log ──────────────────────────────────────────────────────
 
-export const twofaEvents = pgTable(
-  "twofa_events",
+export const auditLog = pgTable(
+  "audit_log",
   {
     id: uuid("id").defaultRandom().primaryKey(),
     workspaceId: uuid("workspace_id")
       .notNull()
       .references(() => workspaces.id, { onDelete: "cascade" }),
-    endUserId: text("end_user_id").notNull(),
-    eventType: text("event_type")
+    event: text("event")
       .$type<
-        | "enrolled"
-        | "verified"
-        | "verify_failed"
-        | "disabled"
-        | "backup_used"
-        | "backup_regenerated"
+        | "magic_link.sent"
+        | "magic_link.verified"
+        | "magic_link.expired"
+        | "otp.sent"
+        | "otp.verified"
+        | "otp.failed"
+        | "otp.expired"
       >()
       .notNull(),
-    metadata: jsonb("metadata"),
+    email: text("email"),
     ipAddress: text("ip_address"),
-    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>(),
+    createdAt: timestamp("created_at", { mode: "date" })
+      .defaultNow()
+      .notNull(),
   },
   (table) => [
-    index("events_workspace_idx").on(table.workspaceId),
-    index("events_user_idx").on(table.workspaceId, table.endUserId),
-    index("events_created_idx").on(table.createdAt),
+    index("audit_log_workspace_idx").on(table.workspaceId),
+    index("audit_log_created_idx").on(table.createdAt),
   ]
 );
 
-// ─── Subscriptions ───────────────────────────────────────────────────
+// ─── Subscriptions ──────────────────────────────────────────────────
 
 export const subscriptions = pgTable("subscriptions", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -157,24 +142,32 @@ export const subscriptions = pgTable("subscriptions", {
     .notNull()
     .references(() => workspaces.id, { onDelete: "cascade" })
     .unique(),
-  tier: text("tier").$type<"free" | "pro" | "business">().default("free").notNull(),
-  status: text("status").default("active").notNull(),
-  stripeCustomerId: text("stripe_customer_id"),
   stripeSubscriptionId: text("stripe_subscription_id"),
-  currentPeriodEnd: timestamp("current_period_end", { mode: "date" }),
-  createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+  plan: text("plan")
+    .$type<"free" | "pro" | "business">()
+    .default("free")
+    .notNull(),
+  status: text("status").default("active").notNull(),
+  createdAt: timestamp("created_at", { mode: "date" })
+    .defaultNow()
+    .notNull(),
+  updatedAt: timestamp("updated_at", { mode: "date" })
+    .defaultNow()
+    .notNull(),
 });
 
-// ─── Webhook Endpoints ───────────────────────────────────────────────
+// ─── Webhooks ───────────────────────────────────────────────────────
 
-export const webhookEndpoints = pgTable("webhook_endpoints", {
+export const webhooks = pgTable("webhooks", {
   id: uuid("id").defaultRandom().primaryKey(),
   workspaceId: uuid("workspace_id")
     .notNull()
     .references(() => workspaces.id, { onDelete: "cascade" }),
   url: text("url").notNull(),
   secret: text("secret").notNull(),
-  events: jsonb("events").$type<string[]>().notNull(),
+  events: text("events").array().notNull(),
   isActive: boolean("is_active").default(true).notNull(),
-  createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+  createdAt: timestamp("created_at", { mode: "date" })
+    .defaultNow()
+    .notNull(),
 });

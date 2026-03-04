@@ -1,5 +1,5 @@
 {
-  "extends": "@twofakit/config/tsconfig.base.json",
+  "extends": "@magiclinkkit/config/tsconfig.base.json",
   "compilerOptions": {
     "target": "ES2020",
     "module": "ESNext",

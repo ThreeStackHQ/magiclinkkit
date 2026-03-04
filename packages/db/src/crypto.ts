@@ -1,44 +1,24 @@
-import { createCipheriv, createDecipheriv, randomBytes } from "crypto";
+import { randomBytes } from "crypto";
+import bcryptjs from "bcryptjs";
 
-interface EncryptedData {
-  iv: string;
-  tag: string;
-  encrypted: string;
+const BCRYPT_ROUNDS = 12;
+
+export function generateToken(): string {
+  return randomBytes(32).toString("hex");
 }
 
-export function encrypt(text: string, key: string): EncryptedData {
-  const keyBuffer = Buffer.from(key, "hex");
-  const iv = randomBytes(12);
-  const cipher = createCipheriv("aes-256-gcm", keyBuffer, iv);
-
-  let encrypted = cipher.update(text, "utf8", "hex");
-  encrypted += cipher.final("hex");
-
-  const tag = cipher.getAuthTag();
-
-  return {
-    iv: iv.toString("hex"),
-    tag: tag.toString("hex"),
-    encrypted,
-  };
+export function generateOtp(): string {
+  const num = Math.floor(Math.random() * 900000) + 100000;
+  return num.toString();
 }
 
-export function decrypt(
-  encrypted: string,
-  iv: string,
-  tag: string,
-  key: string
-): string {
-  const keyBuffer = Buffer.from(key, "hex");
-  const decipher = createDecipheriv(
-    "aes-256-gcm",
-    keyBuffer,
-    Buffer.from(iv, "hex")
-  );
-  decipher.setAuthTag(Buffer.from(tag, "hex"));
+export async function hashPassword(password: string): Promise<string> {
+  return bcryptjs.hash(password, BCRYPT_ROUNDS);
+}
 
-  let decrypted = decipher.update(encrypted, "hex", "utf8");
-  decrypted += decipher.final("utf8");
-
-  return decrypted;
+export async function verifyPassword(
+  password: string,
+  hash: string
+): Promise<boolean> {
+  return bcryptjs.compare(password, hash);
 }

@@ -1,14 +1,11 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
-import { DrizzleAdapter } from "@auth/drizzle-adapter";
-import bcrypt from "bcrypt";
 import { db } from "./db";
-import { users } from "@twofakit/db";
+import { workspaceUsers, workspaces } from "@magiclinkkit/db";
 import { eq } from "drizzle-orm";
+import { verifyPassword } from "@magiclinkkit/db";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const nextAuth = NextAuth({
-  adapter: DrizzleAdapter(db) as ReturnType<typeof DrizzleAdapter>,
   session: { strategy: "jwt" },
   providers: [
     Credentials({
@@ -26,19 +23,25 @@ const nextAuth = NextAuth({
 
         const [user] = await db
           .select()
-          .from(users)
-          .where(eq(users.email, email))
+          .from(workspaceUsers)
+          .where(eq(workspaceUsers.email, email))
           .limit(1);
 
-        if (!user?.passwordHash) return null;
+        if (!user) return null;
 
-        const isValid = await bcrypt.compare(password, user.passwordHash);
+        const isValid = await verifyPassword(password, user.passwordHash);
         if (!isValid) return null;
+
+        const [workspace] = await db
+          .select()
+          .from(workspaces)
+          .where(eq(workspaces.id, user.workspaceId))
+          .limit(1);
 
         return {
           id: user.id,
           email: user.email,
-          name: user.name,
+          name: workspace?.name ?? null,
         };
       },
     }),

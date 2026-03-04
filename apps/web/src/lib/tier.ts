@@ -1,65 +1,69 @@
 import { db } from "./db";
-import { subscriptions, twofaEvents } from "@twofakit/db";
-import { eq, and, gte, sql } from "drizzle-orm";
+import { workspaces } from "@magiclinkkit/db";
+import { eq, sql } from "drizzle-orm";
 
-type Tier = "free" | "pro" | "business";
+type Plan = "free" | "pro" | "business";
 
-const LIMITS: Record<Tier, number> = {
-  free: 1000,
-  pro: 50000,
-  business: Infinity,
-};
-
-export async function getUserTier(workspaceId: string): Promise<Tier> {
-  const [sub] = await db
-    .select()
-    .from(subscriptions)
-    .where(eq(subscriptions.workspaceId, workspaceId))
-    .limit(1);
-
-  if (!sub) return "free";
-  return sub.tier;
+interface TierLimits {
+  monthlyAuthLimit: number;
 }
 
-export async function getMonthlyVerifications(
-  workspaceId: string
-): Promise<number> {
-  const startOfMonth = new Date();
-  startOfMonth.setDate(1);
-  startOfMonth.setHours(0, 0, 0, 0);
-
-  const [result] = await db
-    .select({ count: sql<number>`count(*)::int` })
-    .from(twofaEvents)
-    .where(
-      and(
-        eq(twofaEvents.workspaceId, workspaceId),
-        eq(twofaEvents.eventType, "verified"),
-        gte(twofaEvents.createdAt, startOfMonth)
-      )
-    );
-
-  return result?.count ?? 0;
-}
-
-export async function checkQuota(workspaceId: string): Promise<void> {
-  const tier = await getUserTier(workspaceId);
-  const limit = LIMITS[tier];
-
-  if (limit === Infinity) return;
-
-  const count = await getMonthlyVerifications(workspaceId);
-  if (count >= limit) {
-    throw new QuotaExceededError(tier, limit);
+export function getTierLimits(plan: Plan): TierLimits {
+  switch (plan) {
+    case "free":
+      return { monthlyAuthLimit: 200 };
+    case "pro":
+      return { monthlyAuthLimit: 5000 };
+    case "business":
+      return { monthlyAuthLimit: Infinity };
   }
 }
 
 export class QuotaExceededError extends Error {
   public statusCode = 402;
-  constructor(tier: Tier, limit: number) {
+  constructor(plan: Plan, limit: number) {
     super(
-      `Monthly verification limit of ${limit} reached for ${tier} plan. Please upgrade.`
+      `Monthly auth limit of ${limit} reached for ${plan} plan. Please upgrade.`
     );
     this.name = "QuotaExceededError";
   }
+}
+
+export async function checkAndIncrementAuth(
+  workspaceId: string
+): Promise<void> {
+  const [workspace] = await db
+    .select()
+    .from(workspaces)
+    .where(eq(workspaces.id, workspaceId))
+    .limit(1);
+
+  if (!workspace) throw new Error("Workspace not found");
+
+  // Reset monthly counter if needed
+  const now = new Date();
+  const lastReset = workspace.lastResetAt;
+  if (
+    lastReset.getMonth() !== now.getMonth() ||
+    lastReset.getFullYear() !== now.getFullYear()
+  ) {
+    await db
+      .update(workspaces)
+      .set({ monthlyAuthCount: 0, lastResetAt: now })
+      .where(eq(workspaces.id, workspaceId));
+    workspace.monthlyAuthCount = 0;
+  }
+
+  const limits = getTierLimits(workspace.plan);
+  if (
+    limits.monthlyAuthLimit !== Infinity &&
+    workspace.monthlyAuthCount >= limits.monthlyAuthLimit
+  ) {
+    throw new QuotaExceededError(workspace.plan, limits.monthlyAuthLimit);
+  }
+
+  await db
+    .update(workspaces)
+    .set({ monthlyAuthCount: sql`${workspaces.monthlyAuthCount} + 1` })
+    .where(eq(workspaces.id, workspaceId));
 }

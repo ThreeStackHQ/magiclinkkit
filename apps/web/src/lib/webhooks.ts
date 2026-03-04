@@ -1,6 +1,6 @@
 import { createHmac } from "crypto";
 import { db } from "./db";
-import { webhookEndpoints } from "@twofakit/db";
+import { webhooks } from "@magiclinkkit/db";
 import { eq } from "drizzle-orm";
 
 interface WebhookPayload {
@@ -14,22 +14,23 @@ function sign(payload: string, secret: string): string {
   return createHmac("sha256", secret).update(payload).digest("hex");
 }
 
+const RETRY_DELAYS = [1000, 5000, 30000];
+
 async function sendWebhook(
   url: string,
   payload: WebhookPayload,
-  secret: string,
-  retries = 3
+  secret: string
 ): Promise<void> {
   const body = JSON.stringify(payload);
   const signature = sign(body, secret);
 
-  for (let attempt = 0; attempt < retries; attempt++) {
+  for (let attempt = 0; attempt < RETRY_DELAYS.length; attempt++) {
     try {
       const res = await fetch(url, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-TwoFAKit-Signature": signature,
+          "X-MagicLinkKit-Signature": signature,
         },
         body,
         signal: AbortSignal.timeout(10_000),
@@ -37,6 +38,9 @@ async function sendWebhook(
       if (res.ok) return;
     } catch {
       // Retry on failure
+    }
+    if (attempt < RETRY_DELAYS.length - 1) {
+      await new Promise((r) => setTimeout(r, RETRY_DELAYS[attempt]));
     }
   }
 }
@@ -48,8 +52,8 @@ export async function fireWebhook(
 ): Promise<void> {
   const endpoints = await db
     .select()
-    .from(webhookEndpoints)
-    .where(eq(webhookEndpoints.workspaceId, workspaceId));
+    .from(webhooks)
+    .where(eq(webhooks.workspaceId, workspaceId));
 
   const payload: WebhookPayload = {
     event,
@@ -60,13 +64,10 @@ export async function fireWebhook(
 
   for (const endpoint of endpoints) {
     if (!endpoint.isActive) continue;
-    const events = endpoint.events as string[];
-    if (!events.includes(event)) continue;
+    if (!endpoint.events?.includes(event)) continue;
 
-    setImmediate(() => {
-      sendWebhook(endpoint.url, payload, endpoint.secret).catch(() => {
-        // Silently fail after retries
-      });
+    sendWebhook(endpoint.url, payload, endpoint.secret).catch(() => {
+      // Silently fail after retries
     });
   }
 }

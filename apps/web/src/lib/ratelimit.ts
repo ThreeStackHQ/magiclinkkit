@@ -1,32 +1,60 @@
-const windows = new Map<string, { count: number; resetAt: number }>();
+import Redis from "ioredis";
 
-const WINDOW_MS = 60_000; // 1 minute
-const MAX_ATTEMPTS = 5;
+let redis: Redis | null = null;
+
+function getRedis(): Redis {
+  if (!redis) {
+    const url = process.env.REDIS_URL;
+    if (!url) throw new Error("REDIS_URL environment variable is not set");
+    redis = new Redis(url);
+  }
+  return redis;
+}
 
 export class RateLimitError extends Error {
   public statusCode = 429;
-  constructor() {
-    super("Rate limit exceeded. Try again in 1 minute.");
+  constructor(message: string) {
+    super(message);
     this.name = "RateLimitError";
   }
 }
 
-export function verifyRateLimit(
-  userId: string,
-  workspaceId: string
-): void {
-  const key = `${workspaceId}:${userId}`;
+async function slidingWindowCheck(
+  key: string,
+  maxRequests: number,
+  windowMs: number
+): Promise<void> {
+  const r = getRedis();
   const now = Date.now();
+  const windowStart = now - windowMs;
 
-  const window = windows.get(key);
+  const pipeline = r.pipeline();
+  pipeline.zremrangebyscore(key, 0, windowStart);
+  pipeline.zadd(key, now.toString(), `${now}:${Math.random()}`);
+  pipeline.zcard(key);
+  pipeline.pexpire(key, windowMs);
+  const results = await pipeline.exec();
 
-  if (!window || now > window.resetAt) {
-    windows.set(key, { count: 1, resetAt: now + WINDOW_MS });
-    return;
+  const count = results?.[2]?.[1] as number;
+  if (count > maxRequests) {
+    throw new RateLimitError(
+      `Rate limit exceeded. Max ${maxRequests} requests per ${Math.round(windowMs / 60000)} minutes.`
+    );
   }
+}
 
-  window.count += 1;
-  if (window.count > MAX_ATTEMPTS) {
-    throw new RateLimitError();
-  }
+export async function rateLimitMagicLink(
+  email: string,
+  workspaceId: string
+): Promise<void> {
+  const key = `rl:magic:${workspaceId}:${email}`;
+  await slidingWindowCheck(key, 5, 15 * 60 * 1000);
+}
+
+export async function rateLimitOtp(
+  email: string,
+  workspaceId: string
+): Promise<void> {
+  const key = `rl:otp:${workspaceId}:${email}`;
+  await slidingWindowCheck(key, 3, 10 * 60 * 1000);
 }
