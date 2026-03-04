@@ -16,6 +16,11 @@ function getSecret(): Uint8Array {
   if (!secret) {
     throw new Error("MAGICLINKKIT_JWT_SECRET environment variable is not set");
   }
+  if (secret.length < 32) {
+    throw new Error(
+      "MAGICLINKKIT_JWT_SECRET must be at least 32 characters for HS256 security"
+    );
+  }
   return new TextEncoder().encode(secret);
 }
 

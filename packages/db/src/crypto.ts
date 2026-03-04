@@ -1,4 +1,4 @@
-import { randomBytes } from "crypto";
+import { randomBytes, randomInt } from "crypto";
 import bcryptjs from "bcryptjs";
 
 const BCRYPT_ROUNDS = 12;
@@ -8,7 +8,7 @@ export function generateToken(): string {
 }
 
 export function generateOtp(): string {
-  const num = Math.floor(Math.random() * 900000) + 100000;
+  const num = randomInt(100000, 1000000);
   return num.toString();
 }
 

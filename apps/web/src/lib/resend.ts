@@ -11,12 +11,22 @@ function getResend(): Resend {
   return _resend;
 }
 
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 export async function sendMagicLinkEmail(
   to: string,
   verifyUrl: string,
   workspaceName: string
 ): Promise<void> {
   const resend = getResend();
+  const safeName = escapeHtml(workspaceName);
   await resend.emails.send({
     from: "MagicLinkKit <noreply@magiclinkkit.com>",
     to,
@@ -27,7 +37,7 @@ export async function sendMagicLinkEmail(
           <h1 style="color: #7c3aed; font-size: 24px; margin: 0;">MagicLinkKit</h1>
         </div>
         <p style="color: #374151; font-size: 16px; line-height: 1.5;">
-          Click the button below to sign in to <strong>${workspaceName}</strong>.
+          Click the button below to sign in to <strong>${safeName}</strong>.
         </p>
         <div style="text-align: center; margin: 32px 0;">
           <a href="${verifyUrl}" style="background-color: #7c3aed; color: #ffffff; padding: 12px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px; display: inline-block;">
@@ -52,17 +62,18 @@ export async function sendOtpEmail(
   workspaceName: string
 ): Promise<void> {
   const resend = getResend();
+  const safeName = escapeHtml(workspaceName);
   await resend.emails.send({
     from: "MagicLinkKit <noreply@magiclinkkit.com>",
     to,
-    subject: `Your code for ${workspaceName}: ${code}`,
+    subject: `Your verification code for ${workspaceName}`,
     html: `
       <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 480px; margin: 0 auto; padding: 40px 20px;">
         <div style="text-align: center; margin-bottom: 32px;">
           <h1 style="color: #7c3aed; font-size: 24px; margin: 0;">MagicLinkKit</h1>
         </div>
         <p style="color: #374151; font-size: 16px; line-height: 1.5;">
-          Your verification code for <strong>${workspaceName}</strong>:
+          Your verification code for <strong>${safeName}</strong>:
         </p>
         <div style="text-align: center; margin: 32px 0;">
           <span style="background-color: #f3f0ff; color: #7c3aed; padding: 16px 32px; border-radius: 8px; font-size: 32px; font-weight: 700; letter-spacing: 8px; display: inline-block;">
