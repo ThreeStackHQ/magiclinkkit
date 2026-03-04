@@ -28,6 +28,52 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   switch (event.type) {
+    case "checkout.session.completed": {
+      const session = event.data.object as Stripe.Checkout.Session;
+      const workspaceId = session.metadata?.workspaceId;
+      const plan = session.metadata?.plan as "pro" | "business" | undefined;
+
+      if (!workspaceId || !plan) break;
+
+      const customerId =
+        typeof session.customer === "string"
+          ? session.customer
+          : (session.customer?.id ?? null);
+
+      const subscriptionId =
+        typeof session.subscription === "string"
+          ? session.subscription
+          : (session.subscription?.id ?? null);
+
+      // Persist stripeCustomerId on workspace so subscription events can look it up
+      if (customerId) {
+        await db
+          .update(workspaces)
+          .set({ stripeCustomerId: customerId, plan })
+          .where(eq(workspaces.id, workspaceId));
+      }
+
+      await db
+        .insert(subscriptions)
+        .values({
+          workspaceId,
+          stripeSubscriptionId: subscriptionId,
+          plan,
+          status: "active",
+        })
+        .onConflictDoUpdate({
+          target: subscriptions.workspaceId,
+          set: {
+            stripeSubscriptionId: subscriptionId,
+            plan,
+            status: "active",
+            updatedAt: new Date(),
+          },
+        });
+
+      break;
+    }
+
     case "customer.subscription.created":
     case "customer.subscription.updated": {
       const subscription = event.data.object as Stripe.Subscription;

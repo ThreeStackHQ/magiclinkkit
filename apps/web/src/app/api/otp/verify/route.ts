@@ -5,8 +5,8 @@ import { z } from "zod";
 import { timingSafeEqual } from "crypto";
 import { db } from "@/lib/db";
 import { withApiKey } from "@/lib/api-key";
-import { otpCodes, auditLog, workspaces } from "@magiclinkkit/db";
-import { eq, and, isNull, desc, sql } from "drizzle-orm";
+import { otpCodes, auditLog } from "@magiclinkkit/db";
+import { eq, and, isNull, desc } from "drizzle-orm";
 import { signAuthJwt } from "@/lib/jwt";
 import { fireWebhook } from "@/lib/webhooks";
 
@@ -98,11 +98,6 @@ async function handler(
       .update(otpCodes)
       .set({ usedAt: new Date() })
       .where(eq(otpCodes.id, otp.id));
-
-    await db
-      .update(workspaces)
-      .set({ monthlyAuthCount: sql`${workspaces.monthlyAuthCount} + 1` })
-      .where(eq(workspaces.id, ctx.workspaceId));
 
     const jwt = await signAuthJwt({ workspaceId: ctx.workspaceId, email });
 

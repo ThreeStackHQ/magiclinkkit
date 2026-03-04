@@ -2,8 +2,8 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { magicLinks, auditLog, workspaces } from "@magiclinkkit/db";
-import { eq, sql } from "drizzle-orm";
+import { magicLinks, auditLog } from "@magiclinkkit/db";
+import { eq } from "drizzle-orm";
 import { signAuthJwt } from "@/lib/jwt";
 import { fireWebhook } from "@/lib/webhooks";
 
@@ -41,11 +41,6 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       .update(magicLinks)
       .set({ usedAt: new Date() })
       .where(eq(magicLinks.id, link.id));
-
-    await db
-      .update(workspaces)
-      .set({ monthlyAuthCount: sql`${workspaces.monthlyAuthCount} + 1` })
-      .where(eq(workspaces.id, link.workspaceId));
 
     const jwt = await signAuthJwt({
       workspaceId: link.workspaceId,
