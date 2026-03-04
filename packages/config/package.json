@@ -1,0 +1,10 @@
+{
+  "name": "@magiclinkkit/config",
+  "version": "0.0.0",
+  "private": true,
+  "files": [
+    "tsconfig.base.json",
+    "tsconfig.nextjs.json",
+    "eslint-preset.js"
+  ]
+}
