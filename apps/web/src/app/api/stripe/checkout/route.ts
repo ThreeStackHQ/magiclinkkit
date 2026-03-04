@@ -5,7 +5,7 @@ import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { getStripe } from "@/lib/stripe";
 import { db } from "@/lib/db";
-import { workspaces, subscriptions } from "@twofakit/db";
+import { workspaces, subscriptions } from "@magiclinkkit/db";
 import { eq } from "drizzle-orm";
 
 const CheckoutSchema = z.object({

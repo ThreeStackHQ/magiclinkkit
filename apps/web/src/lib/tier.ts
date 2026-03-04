@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { subscriptions, twofaEvents } from "@twofakit/db";
+import { subscriptions, twofaEvents } from "@magiclinkkit/db";
 import { eq, and, gte, sql } from "drizzle-orm";
 
 type Tier = "free" | "pro" | "business";

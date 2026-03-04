@@ -5,7 +5,7 @@ import { z } from "zod";
 import bcrypt from "bcrypt";
 import { randomBytes } from "crypto";
 import { db } from "@/lib/db";
-import { users, workspaces, workspaceApiKeys, subscriptions } from "@twofakit/db";
+import { users, workspaces, workspaceApiKeys, subscriptions } from "@magiclinkkit/db";
 
 const SignupSchema = z.object({
   email: z.string().email().max(255),

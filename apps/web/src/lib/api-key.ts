@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { workspaceApiKeys } from "@twofakit/db";
+import { workspaceApiKeys } from "@magiclinkkit/db";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcrypt";
 import { NextRequest, NextResponse } from "next/server";

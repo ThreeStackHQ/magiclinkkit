@@ -1,6 +1,6 @@
 import { createHmac } from "crypto";
 import { db } from "./db";
-import { webhookEndpoints } from "@twofakit/db";
+import { webhookEndpoints } from "@magiclinkkit/db";
 import { eq } from "drizzle-orm";
 
 interface WebhookPayload {

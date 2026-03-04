@@ -6,8 +6,8 @@ import speakeasy from "speakeasy";
 import QRCode from "qrcode";
 import { db } from "@/lib/db";
 import { withApiKey } from "@/lib/api-key";
-import { twofaEnrollments } from "@twofakit/db";
-import { encrypt } from "@twofakit/db";
+import { twofaEnrollments } from "@magiclinkkit/db";
+import { encrypt } from "@magiclinkkit/db";
 import { and, eq } from "drizzle-orm";
 
 const EnrollSchema = z.object({

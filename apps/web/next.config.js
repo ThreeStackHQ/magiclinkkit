@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  transpilePackages: ["@twofakit/db"],
+  transpilePackages: ["@magiclinkkit/db"],
 };
 
 module.exports = nextConfig;

@@ -7,8 +7,8 @@ import bcrypt from "bcrypt";
 import { randomBytes } from "crypto";
 import { db } from "@/lib/db";
 import { withApiKey } from "@/lib/api-key";
-import { twofaEnrollments, twofaEvents } from "@twofakit/db";
-import { decrypt } from "@twofakit/db";
+import { twofaEnrollments, twofaEvents } from "@magiclinkkit/db";
+import { decrypt } from "@magiclinkkit/db";
 import { and, eq } from "drizzle-orm";
 import { fireWebhook } from "@/lib/webhooks";
 

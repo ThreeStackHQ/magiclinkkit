@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { withApiKey } from "@/lib/api-key";
-import { twofaEvents, twofaEnrollments } from "@twofakit/db";
+import { twofaEvents, twofaEnrollments } from "@magiclinkkit/db";
 import { and, eq, gte, sql } from "drizzle-orm";
 
 async function handler(
@@ -110,7 +110,7 @@ async function handler(
       verificationsThisMonth: verificationsThisMonth[0]?.count ?? 0,
       successRate,
       enrolledUsers: enrolledUsers[0]?.count ?? 0,
-      topFailures: topFailures.map((f) => ({
+      topFailures: topFailures.map((f: { userId: string | null; failures: number }) => ({
         userId: f.userId,
         failures: f.failures,
       })),

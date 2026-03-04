@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { withApiKey } from "@/lib/api-key";
-import { webhookEndpoints } from "@twofakit/db";
+import { webhookEndpoints } from "@magiclinkkit/db";
 import { and, eq } from "drizzle-orm";
 
 async function handler(

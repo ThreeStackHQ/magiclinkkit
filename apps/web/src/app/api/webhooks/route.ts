@@ -5,7 +5,7 @@ import { z } from "zod";
 import { randomBytes } from "crypto";
 import { db } from "@/lib/db";
 import { withApiKey } from "@/lib/api-key";
-import { webhookEndpoints } from "@twofakit/db";
+import { webhookEndpoints } from "@magiclinkkit/db";
 import { eq } from "drizzle-orm";
 
 const CreateWebhookSchema = z.object({
@@ -90,7 +90,7 @@ async function handleGet(
   return NextResponse.json({
     status: "success",
     data: {
-      endpoints: endpoints.map((e) => ({
+      endpoints: endpoints.map((e: { id: string; url: string; events: string[]; isActive: boolean; createdAt: Date }) => ({
         ...e,
         createdAt: e.createdAt.toISOString(),
       })),

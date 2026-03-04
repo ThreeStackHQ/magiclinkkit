@@ -1,4 +1,4 @@
-import { createDb } from "@twofakit/db";
+import { createDb } from "@magiclinkkit/db";
 
 // Use a valid-format placeholder at build time — actual queries only run at request time
 export const db = createDb(

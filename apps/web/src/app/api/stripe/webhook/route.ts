@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { getStripe } from "@/lib/stripe";
 import { db } from "@/lib/db";
-import { subscriptions } from "@twofakit/db";
+import { subscriptions } from "@magiclinkkit/db";
 import { eq } from "drizzle-orm";
 
 export async function POST(req: NextRequest): Promise<NextResponse> {

@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { withApiKey } from "@/lib/api-key";
-import { twofaEvents } from "@twofakit/db";
+import { twofaEvents } from "@magiclinkkit/db";
 import { and, eq, desc, sql } from "drizzle-orm";
 
 const PAGE_SIZE = 50;
@@ -58,7 +58,7 @@ async function handler(
   return NextResponse.json({
     status: "success",
     data: {
-      events: events.map((e) => ({
+      events: events.map((e: { id: string; endUserId: string; eventType: string; metadata: unknown; ipAddress: string | null; createdAt: Date }) => ({
         id: e.id,
         userId: e.endUserId,
         eventType: e.eventType,

@@ -9,8 +9,8 @@ import { db } from "@/lib/db";
 import { withApiKey } from "@/lib/api-key";
 import { checkQuota, QuotaExceededError } from "@/lib/tier";
 import { verifyRateLimit, RateLimitError } from "@/lib/ratelimit";
-import { twofaEnrollments, twofaEvents } from "@twofakit/db";
-import { decrypt } from "@twofakit/db";
+import { twofaEnrollments, twofaEvents } from "@magiclinkkit/db";
+import { decrypt } from "@magiclinkkit/db";
 import { and, eq } from "drizzle-orm";
 import { fireWebhook } from "@/lib/webhooks";
 

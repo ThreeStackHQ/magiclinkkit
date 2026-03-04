@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { withApiKey } from "@/lib/api-key";
-import { twofaEnrollments } from "@twofakit/db";
+import { twofaEnrollments } from "@magiclinkkit/db";
 import { eq } from "drizzle-orm";
 
 async function handler(
@@ -20,7 +20,7 @@ async function handler(
     .from(twofaEnrollments)
     .where(eq(twofaEnrollments.workspaceId, ctx.workspaceId));
 
-  const users = enrollments.map((e) => ({
+  const users = enrollments.map((e: { endUserId: string; isEnabled: boolean; enrolledAt: Date | null; lastVerifiedAt: Date | null }) => ({
     userId: e.endUserId,
     twoFaEnabled: e.isEnabled,
     enrolledAt: e.enrolledAt?.toISOString() ?? null,

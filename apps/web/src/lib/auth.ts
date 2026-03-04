@@ -3,7 +3,7 @@ import Credentials from "next-auth/providers/credentials";
 import { DrizzleAdapter } from "@auth/drizzle-adapter";
 import bcrypt from "bcrypt";
 import { db } from "./db";
-import { users } from "@twofakit/db";
+import { users } from "@magiclinkkit/db";
 import { eq } from "drizzle-orm";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
